@@ -1,45 +1,59 @@
-import json
 import logging
-
 import jwt
-
-from fastapi import Depends, HTTPException, status
 from fastapi.requests import Request
-from fastapi.security import OAuth2PasswordBearer
-from starlette.exceptions import HTTPException
 
+from config import settings
+from exceptions import PayloadSizeExceed, InvalidTokenType, InvalidToken
 from schemas import UserSchema
 
+# Set up logging
 logger = logging.getLogger(__name__)
 
-reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f'{settings.IAM_DOMAIN}{settings.API_V1_STR}/auth/login/access_token/' if settings.PROJECT_NAME is None \
-        else f'{settings.IAM_DOMAIN}{settings.API_V1_STR}/iam/auth/login/access_token/')
-
+# Define the JWT algorithm to be used
 JWT_ALGORITHM = "RS256"
 
 
-async def get_current_user_info(
-        redis_conn: aioredis = Depends(get_ioredis_connection),
-        token: str = Depends(reusable_oauth2)
+async def get_current_user(request: Request) -> UserSchema:
+    """
+    Get the current user from the Authorization header in the request.
 
-) -> UserSchema:
+    Args:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        UserSchema: The user schema containing the user information.
+
+    Raises:
+        InvalidTokenType: If the token type is not Bearer.
+        InvalidToken: If the token is invalid or decoding fails.
+    """
     try:
-        # redis_conn = await anext(get_ioredis_connection())
-        payload = jwt.decode(token, settings.USER_RSA_PUBLIC_KEY, algorithms=[JWT_ALGORITHM])
-        session_data = payload['session']
-        user_data = await redis_conn.get(f"user:{session_data}")
-        if not user_data:
-            raise Exception("session not found in redis")
-        user_data = json.loads(user_data)
-        return schemas.UserInfo(
-            id=int(user_data["id"]),
-            authentication_level=user_data["authentication_level"]
-        )
-    except (jwt.InvalidSignatureError, Exception) as e:
-        print(e)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-        )
+        authorization = request.headers.get("Authorization")
+        if not authorization:
+            raise InvalidToken("Authorization header missing")
 
+        token_type, token = authorization.split(" ")
+        if token_type.lower() != "bearer":
+            raise InvalidTokenType
+
+        payload = jwt.decode(token, settings.USER_RSA_PUBLIC_KEY, algorithms=[JWT_ALGORITHM])
+        return payload['user_id']
+
+    except (jwt.InvalidSignatureError, Exception) as e:
+        logger.error(e)
+        raise InvalidToken
+
+
+async def validate_content_length(request: Request):
+    """
+    Validate the content length of the incoming request.
+
+    Args:
+        request (Request): The incoming HTTP request.
+
+    Raises:
+        PayloadSizeExceed: If the content length exceeds the maximum allowed size.
+    """
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > settings.PAYLOAD_MAX_SIZE * 1024 * 1024:  # 1 MB limit
+        raise PayloadSizeExceed

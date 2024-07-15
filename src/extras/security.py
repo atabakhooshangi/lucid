@@ -1,44 +1,55 @@
 import logging
 import bcrypt
 from datetime import datetime, timedelta
-
 import jwt
 
 from config import settings
 
-
+# Initialize logger
 logger = logging.getLogger(__name__)
 
+# Algorithm used for JWT encoding and decoding
 ALGORITHM = "RS256"
 
 
-async def create_token(
-        user,
-        expires_delta: timedelta = None
+async def create_token(user, expires_delta: timedelta = None) -> str:
+    """
+    Create a JWT token for a user.
 
-) -> dict:
+    Args:
+        user: The user object containing user details.
+        expires_delta (timedelta, optional): The time delta for token expiration. Defaults to settings.ACCESS_TOKEN_EXPIRE_MINUTES.
+
+    Returns:
+        str: The encoded JWT token.
+    """
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
     to_encode = {"exp": expire, "user_id": user.id}
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.USER_RSA_PRIVATE_KEY,  # sign with rsa private key
+        settings.USER_RSA_PRIVATE_KEY,  # Sign with RSA private key
         algorithm=ALGORITHM,
     )
-
     return encoded_jwt
 
 
-async def verify_token(token: str):
-    try:
+async def verify_token(token: str) -> dict:
+    """
+    Verify a JWT token.
 
+    Args:
+        token (str): The JWT token to verify.
+
+    Returns:
+        dict: A dictionary containing verification status and user data if verified.
+    """
+    try:
         key = settings.USER_RSA_PUBLIC_KEY
         payload = jwt.decode(token, key, algorithms=[ALGORITHM])
-
         return dict(verified=True, user_data=payload)
     except Exception as e:
         logger.info(e)

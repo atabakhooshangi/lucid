@@ -1,37 +1,59 @@
-from datetime import datetime
-from typing import Any, Dict, Optional, Union, List
-
-from fastapi.encoders import jsonable_encoder
-from sqlalchemy import func, desc
+from typing import Optional, Union
+from pydantic import EmailStr
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import Session, load_only, joinedload, noload
-from sqlalchemy.sql.elements import or_
-from starlette import status
+from sqlalchemy.orm import noload
 
 import schemas
 from crud.base import CRUDBase
-from exceptions import UserExistsWithThisEmail
+from exceptions import UserExistsWithThisEmail, InvalidCredentials
 from models import User
-from extras.security import get_password_hash
+from extras.security import get_password_hash, verify_password
 
 
 class CRUDUser(CRUDBase[User, schemas.UserInSchema, schemas.UserUpdate]):
+    """
+    CRUD operations for the User model.
+    """
 
-    async def get_user(self, db: AsyncSession, *, user_id: int) -> Optional[User]:
+    async def get_user(self, db: AsyncSession, *, input: Union[int, EmailStr]) -> Optional[User]:
+        """
+        Retrieve a user by ID or email.
+
+        Args:
+            db (AsyncSession): The database session.
+            input (Union[int, EmailStr]): The user ID or email.
+
+        Returns:
+            Optional[User]: The retrieved user or None if not found.
+        """
+        if isinstance(input, int):
+            filters = [User.id == input]
+        else:
+            filters = [User.email == input]
         query = await db.execute(
             select(User).options(
-                load_only(User.id, User.email),
-                noload(User.posts)
-            ).filter(User.id == user_id)
+                noload(User.posts)  # Do not load related posts
+            ).filter(*filters)
         )
-        user = query.scalar()
+        user = query.scalars().first()
         return user
 
     async def create_user(self, db: AsyncSession, user_in: schemas.UserInSchema) -> User:
-        # user_in_data = jsonable_encoder(user_in)
+        """
+        Create a new user.
 
+        Args:
+            db (AsyncSession): The database session.
+            user_in (schemas.UserInSchema): The input schema for creating a user.
+
+        Returns:
+            User: The newly created user.
+
+        Raises:
+            UserExistsWithThisEmail: If a user with the given email already exists.
+        """
         hashed_pass = get_password_hash(user_in.password)
         user_in.password = hashed_pass
         user = User(**user_in.model_dump())
@@ -43,5 +65,28 @@ class CRUDUser(CRUDBase[User, schemas.UserInSchema, schemas.UserUpdate]):
         except IntegrityError:
             raise UserExistsWithThisEmail
 
+    async def authenticate_user(self, db: AsyncSession, login_schema: schemas.LoginSchema) -> Optional[User]:
+        """
+        Authenticate a user.
 
+        Args:
+            db (AsyncSession): The database session.
+            login_schema (schemas.LoginSchema): The login schema containing user credentials.
+
+        Returns:
+            Optional[User]: The authenticated user.
+
+        Raises:
+            InvalidCredentials: If the credentials are invalid.
+        """
+        user = await self.get_user(db, input=login_schema.email)
+        if not user:
+            raise InvalidCredentials
+        verify = await verify_password(login_schema.password, user.password)
+        if verify:
+            return user
+        raise InvalidCredentials
+
+
+# Instantiate the CRUDUser class for the User model
 user = CRUDUser(User)

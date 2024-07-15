@@ -15,31 +15,19 @@ This is a FastAPI application designed to manage posts and users. The applicatio
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/your-repo.git
-cd your-repo
+git clone https://github.com/atabakhooshangi/lucid.git
+cd lucid
 ```
 
 ### 2. Create and Activate a Virtual Environment
 
-#### On Unix or MacOS
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+poetry config virtualenvs.in-project true  # this will make poetry add the env folder to the directory of your toml file.
+poetry install
+poetry shell
 ```
 
-#### On Windows
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
 
 ## Configuration
 
@@ -69,6 +57,8 @@ SERVER_PORT=your_server_port
 RELOAD=your_reload_setting
 PAYLOAD_MAX_SIZE=your_payload_max_size
 CACHE_TIME=your_cache_time
+USER_RSA_PRIVATE_KEY=your_keys
+USER_RSA_PUBLIC_KEY=your_keys
 ```
 
 ## Database Migration
@@ -78,6 +68,8 @@ CACHE_TIME=your_cache_time
 Run the following command to create the database tables:
 
 ```bash
+cd src
+alembic revision --autogenerate -m "Initial migration"
 alembic upgrade head
 ```
 
@@ -88,16 +80,16 @@ alembic upgrade head
 Use the following command to start the FastAPI application:
 
 ```bash
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+python main.py
 ```
 
 ### 2. Access the Application
 
-Open your browser and navigate to `http://localhost:8000` to access the application.
+Open your browser and navigate to `http://{your-host}:{your-port}` to access the application.
 
 ### 3. API Documentation
 
-You can access the automatically generated API documentation by navigating to `http://localhost:8000/docs`.
+You can access the automatically generated API documentation by navigating to `http://{your-host}:{your-port}/docs`.
 
 ## Additional Information
 

@@ -64,8 +64,8 @@ class Settings(BaseSettings):
             username=values.data.get("MYSQL_USER"),
             password=values.data.get("MYSQL_PASSWORD"),
             host=values.data.get("MYSQL_SERVER"),
-            port=str(values.data.get("MYSQL_PORT")),
-            path=f"/{values.data.get('MYSQL_DB') or ''}",
+            port=int(values.data.get("MYSQL_PORT")),
+            path=f"{values.data.get('MYSQL_DB') or ''}",
         )
 
 

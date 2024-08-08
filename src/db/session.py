@@ -29,6 +29,7 @@ class AsyncDBSingleton:
         Returns:
             AsyncEngine: The initialized asynchronous engine.
         """
+        print(settings.SQLALCHEMY_ASYNC_DATABASE_URI.__str__())
         if cls._engine is None:
             cls._engine = create_async_engine(
                 settings.SQLALCHEMY_ASYNC_DATABASE_URI.__str__(),
@@ -86,6 +87,7 @@ async def get_async_db() -> AsyncSession:
     Raises:
         Exception: If an error occurs, the transaction is rolled back, and the exception is logged.
     """
+    print('maaaaaaaaaaaaaal')
     db_session = None
     try:
         # Get a session scoped to the current task

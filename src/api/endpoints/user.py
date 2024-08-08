@@ -10,6 +10,7 @@ router = APIRouter()
 
 
 @router.post("/register/",
+             name="auth:register",
              status_code=201)
 async def register(
         user_in: schemas.UserInSchema,
@@ -30,6 +31,7 @@ async def register(
 
 
 @router.post("/login/",
+             name="auth:login",
              status_code=200)
 async def login(
         login_schema: schemas.LoginSchema,
